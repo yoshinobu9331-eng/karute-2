@@ -1,0 +1,765 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ロキシークラブ - 予約カルテシステム</title>
+    <!-- Tailwind CSS for modern mobile-first design -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Inter & Noto Sans JP -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f8fafc;
+            color: #1e293b;
+        }
+        /* Custom scrollbar for mobile feel */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 min-h-screen flex flex-col items-center justify-start pb-20">
+
+    <!-- App Header -->
+    <header class="w-full max-w-md bg-white shadow-sm sticky top-0 z-30 px-4 py-3 flex items-center justify-between border-b border-slate-100">
+        <div class="flex items-center space-x-2">
+            <div class="w-9 h-9 rounded-full bg-rose-500 flex items-center justify-center text-white font-bold text-lg shadow-md shadow-rose-200">
+                R
+            </div>
+            <div>
+                <h1 class="text-base font-bold text-slate-800 tracking-wide">ロキシークラブ</h1>
+                <p class="text-[10px] text-slate-400">Private Hair Salon Karte</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-1 bg-rose-50 text-rose-600 px-2.5 py-1 rounded-full text-xs font-medium">
+            <i class="fa-solid fa-scissors text-[10px]"></i>
+            <span id="headerTotalCount">0件予約</span>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-md px-4 py-4 flex-1">
+        
+        <!-- Tab Navigation -->
+        <div class="flex bg-white rounded-xl p-1 shadow-sm border border-slate-200 mb-5">
+            <button onclick="switchTab('list')" id="tab-list" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 bg-rose-500 text-white shadow-sm flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-calendar-days"></i>
+                <span>予約一覧</span>
+            </button>
+            <button onclick="switchTab('register')" id="tab-register" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-800 flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-user-plus"></i>
+                <span>新規予約登録</span>
+            </button>
+            <button onclick="switchTab('karte')" id="tab-karte" class="flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-800 flex items-center justify-center space-x-1.5">
+                <i class="fa-solid fa-address-book"></i>
+                <span>カルテ管理</span>
+            </button>
+        </div>
+
+        <!-- Notification Banner -->
+        <div id="notification" class="hidden mb-4 p-3 rounded-xl text-xs font-medium flex items-center justify-between transition-all duration-300 shadow-sm">
+            <span id="notificationText"></span>
+            <button onclick="hideNotification()" class="text-lg leading-none">&times;</button>
+        </div>
+
+        <!-- TAB 1: 予約一覧 (Sorted by Date/Time) -->
+        <section id="section-list" class="space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-bold text-slate-700 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-clock text-rose-500"></i>
+                    <span>予約日時順 一覧</span>
+                </h2>
+                <span class="text-xs text-slate-400 bg-white px-2 py-0.5 rounded border border-slate-200">自動ソート中</span>
+            </div>
+
+            <!-- Search Filter Bar -->
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                </span>
+                <input type="text" id="searchQuery" oninput="renderBookingList()" placeholder="お名前または電話番号で検索..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-sm transition-all">
+            </div>
+
+            <!-- Booking Cards Container -->
+            <div id="bookingListContainer" class="space-y-3">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+        <!-- TAB 2: 新規予約登録・編集画面 -->
+        <section id="section-register" class="hidden space-y-4">
+            <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 space-y-4">
+                <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+                    <h2 id="formTitle" class="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
+                        <i class="fa-solid fa-calendar-check text-rose-500"></i>
+                        <span>新規予約・カルテ登録</span>
+                    </h2>
+                    <button type="button" onclick="resetForm()" class="text-[11px] text-slate-400 hover:text-rose-500 underline">クリア</button>
+                </div>
+
+                <form id="bookingForm" onsubmit="saveBooking(event)" class="space-y-4">
+                    <input type="hidden" id="editingId" value="">
+
+                    <!-- Customer Name -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">お名前 <span class="text-rose-500">*</span></label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-user text-xs"></i></span>
+                            <input type="text" id="customerName" required placeholder="例: 山田 花子" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-400 transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Phone Number -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">お電話番号 <span class="text-rose-500">*</span></label>
+                        <div class="relative">
+                            <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400"><i class="fa-solid fa-phone text-xs"></i></span>
+                            <input type="tel" id="customerPhone" required placeholder="例: 090-1234-5678" class="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-400 transition-all">
+                        </div>
+                    </div>
+
+                    <!-- Date & Time Selection -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">予約日 <span class="text-rose-500">*</span></label>
+                            <input type="date" id="bookingDate" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-400 transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 mb-1">予約時間 <span class="text-rose-500">*</span></label>
+                            <select id="bookingTime" required class="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-400 transition-all">
+                                <option value="">選択してください</option>
+                                <option value="10:00">10:00 〜</option>
+                                <option value="11:30">11:30 〜</option>
+                                <option value="13:00">13:00 〜</option>
+                                <option value="14:30">14:30 〜</option>
+                                <option value="16:00">16:00 〜</option>
+                                <option value="17:30">17:30 〜</option>
+                                <option value="19:00">19:00 〜</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Selectable Menu Plans (Market Price Based) -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1.5">ご希望メニュー（複数選択可・自動合算） <span class="text-rose-500">*</span></label>
+                        <div class="space-y-2 bg-slate-50 p-3 rounded-xl border border-slate-200" id="menuCheckboxes">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Total Price Display Box -->
+                    <div class="bg-rose-50 border border-rose-100 p-3.5 rounded-xl flex items-center justify-between">
+                        <div>
+                            <span class="text-[11px] text-rose-500 font-bold block">合計見積金額（税込）</span>
+                            <span class="text-[10px] text-slate-500">選択したメニューから自動計算されます</span>
+                        </div>
+                        <div class="text-right">
+                            <span id="displayTotalPrice" class="text-lg font-black text-rose-600">¥0</span>
+                            <input type="hidden" id="calculatedTotalPrice" value="0">
+                        </div>
+                    </div>
+
+                    <!-- Memo / Karte Notes -->
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 mb-1">カルテ・カウンセリングメモ</label>
+                        <textarea id="customerMemo" rows="3" placeholder="髪の悩み、過去の施術履歴、アレルギー情報など..." class="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:bg-white focus:outline-none focus:ring-2 focus:ring-rose-400 transition-all"></textarea>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submitBtn" class="w-full py-3 bg-rose-500 hover:bg-rose-600 text-white font-bold rounded-xl text-xs shadow-lg shadow-rose-200 transition-all flex items-center justify-center space-x-2">
+                        <i class="fa-solid fa-check"></i>
+                        <span id="submitBtnText">予約を確定してカルテ保存</span>
+                    </button>
+                </form>
+            </div>
+        </section>
+
+        <!-- TAB 3: カルテ管理 (Client Karte Database) -->
+        <section id="section-karte" class="hidden space-y-4">
+            <div class="flex items-center justify-between">
+                <h2 class="text-sm font-bold text-slate-700 flex items-center space-x-1.5">
+                    <i class="fa-solid fa-address-book text-rose-500"></i>
+                    <span>顧客カルテ一覧</span>
+                </h2>
+                <span id="karteCount" class="text-xs text-slate-500 bg-white px-2.5 py-0.5 rounded-full border border-slate-200 shadow-sm">0名</span>
+            </div>
+
+            <!-- Karte Search Bar -->
+            <div class="relative">
+                <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+                    <i class="fa-solid fa-magnifying-glass text-xs"></i>
+                </span>
+                <input type="text" id="karteSearchQuery" oninput="renderKarteList()" placeholder="顧客名でカルテを検索..." class="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-rose-400 shadow-sm transition-all">
+            </div>
+
+            <div id="karteListContainer" class="space-y-3">
+                <!-- Dynamically populated -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Detail / Karte Modal -->
+    <div id="detailModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-sm rounded-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in duration-200 max-h-[90vh] flex flex-col">
+            <div class="bg-slate-900 text-white p-4 flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-user-circle text-rose-400 text-lg"></i>
+                    <div>
+                        <h3 id="modalCustomerName" class="text-sm font-bold"></h3>
+                        <p id="modalCustomerPhone" class="text-[11px] text-slate-400"></p>
+                    </div>
+                </div>
+                <button onclick="closeModal()" class="w-7 h-7 rounded-full bg-slate-800 flex items-center justify-center text-slate-300 hover:text-white">&times;</button>
+            </div>
+            <div class="p-4 space-y-3 overflow-y-auto flex-1 text-xs">
+                <div class="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-1.5">
+                    <div class="flex justify-between text-slate-500">
+                        <span>予約日時:</span>
+                        <span id="modalBookingDateTime" class="font-bold text-slate-800"></span>
+                    </div>
+                    <div class="flex justify-between text-slate-500">
+                        <span>合計金額:</span>
+                        <span id="modalPrice" class="font-bold text-rose-600 text-sm"></span>
+                    </div>
+                </div>
+                <div>
+                    <span class="font-bold text-slate-700 block mb-1">選択メニュー</span>
+                    <div id="modalMenuList" class="flex flex-wrap gap-1"></div>
+                </div>
+                <div>
+                    <span class="font-bold text-slate-700 block mb-1">カルテ・施術メモ</span>
+                    <div id="modalMemo" class="p-3 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 whitespace-pre-wrap min-h-[60px]"></div>
+                </div>
+            </div>
+            <div class="p-3 bg-slate-50 border-t border-slate-100 flex space-x-2">
+                <button onclick="editBookingFromModal()" class="flex-1 py-2 bg-slate-800 text-white rounded-xl font-bold hover:bg-slate-700 transition-all">編集する</button>
+                <button onclick="closeModal()" class="flex-1 py-2 bg-white border border-slate-300 text-slate-700 rounded-xl font-bold hover:bg-slate-100 transition-all">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Message Box Modal -->
+    <div id="alertModal" class="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-xs rounded-2xl p-5 text-center shadow-xl space-y-3">
+            <div id="alertIcon" class="w-10 h-10 mx-auto rounded-full bg-rose-100 text-rose-500 flex items-center justify-center text-base font-bold">
+                <i class="fa-solid fa-circle-exclamation"></i>
+            </div>
+            <h3 id="alertTitle" class="text-sm font-bold text-slate-800">確認</h3>
+            <p id="alertMessage" class="text-xs text-slate-600"></p>
+            <button onclick="closeAlertModal()" class="w-full py-2.5 bg-rose-500 text-white font-bold rounded-xl text-xs shadow-md shadow-rose-200">閉じる</button>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // Hair Salon Market Standard Menus & Prices (JPY)
+        const salonMenus = [
+            { id: 'cut', name: 'カット (シャンプー・ブロー込)', price: 5500, category: 'cut' },
+            { id: 'color', name: 'スタンダードカラー (リタッチ/全体)', price: 7700, category: 'color' },
+            { id: 'perm', name: 'コスメデジタルパーマ', price: 11000, category: 'perm' },
+            { id: 'straight', name: '髪質改善ストレートパーマ', price: 14300, category: 'perm' },
+            { id: 'treatment', name: '極上トリートメント (TOKIO等)', price: 4400, category: 'treatment' },
+            { id: 'headspa', name: 'リラクゼーションヘッドスパ (20分)', price: 3300, category: 'treatment' },
+            { id: 'styling', name: 'ヘアセット・ブロー', price: 4400, category: 'other' }
+        ];
+
+        // Initial Sample Data (if localStorage is empty)
+        const sampleBookings = [
+            {
+                id: '1718000001000',
+                name: '佐藤 健一',
+                phone: '090-1111-2222',
+                date: '2026-06-15',
+                time: '10:00',
+                menus: ['cut', 'headspa'],
+                totalPrice: 8800,
+                memo: 'サイドはすっきり2ブロック。頭皮のマッサージを念入りに希望。',
+                createdAt: '2026-06-01T10:00:00.000Z'
+            },
+            {
+                id: '1718000002000',
+                name: '鈴木 美咲',
+                phone: '080-3333-4444',
+                date: '2026-06-12',
+                time: '13:00',
+                menus: ['cut', 'color', 'treatment'],
+                totalPrice: 17600,
+                memo: '明るめのオリーブベージュ系を希望。前回カラーの色持ちが良かったとのこと。',
+                createdAt: '2026-06-02T11:30:00.000Z'
+            },
+            {
+                id: '1718000003000',
+                name: '高橋 由美',
+                phone: '090-5555-6666',
+                date: '2026-06-12',
+                time: '16:00',
+                menus: ['perm', 'treatment'],
+                totalPrice: 15400,
+                memo: 'デジタルパーマでふんわりエアリー感。毛先のダメージに注意。',
+                createdAt: '2026-06-03T14:20:00.000Z'
+            }
+        ];
+
+        // Application State
+        let bookings = [];
+        let currentModalBookingId = null;
+
+        // Initialize App on Window Load
+        window.onload = function() {
+            loadBookings();
+            renderMenuCheckboxes();
+            setDefaultDate();
+            renderBookingList();
+            renderKarteList();
+            updateHeaderCount();
+            
+            // Check every minute for expired/passed appointments
+            setInterval(checkExpiredBookings, 60000);
+        };
+
+        // Load from localStorage or seed sample data
+        function loadBookings() {
+            const saved = localStorage.getItem('roxy_club_bookings');
+            if (saved) {
+                try {
+                    bookings = JSON.parse(saved);
+                } catch(e) {
+                    bookings = sampleBookings;
+                }
+            } else {
+                bookings = sampleBookings;
+                saveToLocalStorage();
+            }
+        }
+
+        function saveToLocalStorage() {
+            localStorage.setItem('roxy_club_bookings', JSON.stringify(bookings));
+        }
+
+        // Render menu items as checkboxes with dynamic calculation trigger
+        function renderMenuCheckboxes() {
+            const container = document.getElementById('menuCheckboxes');
+            container.innerHTML = '';
+            salonMenus.forEach(menu => {
+                const div = document.createElement('label');
+                div.className = 'flex items-center justify-between p-2.5 bg-white rounded-xl border border-slate-200 hover:border-rose-300 cursor-pointer transition-all shadow-sm';
+                div.innerHTML = `
+                    <div class="flex items-center space-x-2.5">
+                        <input type="checkbox" name="menuCheckbox" value="${menu.id}" onchange="calculateTotalPrice()" class="w-4 h-4 text-rose-500 rounded focus:ring-rose-400 border-slate-300">
+                        <span class="text-xs font-medium text-slate-800">${menu.name}</span>
+                    </div>
+                    <span class="text-xs font-bold text-rose-600">¥${menu.price.toLocaleString()}</span>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        // Set default booking date to today
+        function setDefaultDate() {
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('bookingDate').value = today;
+        }
+
+        // Automatic price calculation when menu options change
+        function calculateTotalPrice() {
+            const checkboxes = document.querySelectorAll('input[name="menuCheckbox"]:checked');
+            let total = 0;
+            checkboxes.forEach(cb => {
+                const menu = salonMenus.find(m => m.id === cb.value);
+                if (menu) total += menu.price;
+            });
+            document.getElementById('displayTotalPrice').textContent = `¥${total.toLocaleString()}`;
+            document.getElementById('calculatedTotalPrice').value = total;
+        }
+
+        // Switch Tabs Function
+        function switchTab(tabName) {
+            const tabs = ['list', 'register', 'karte'];
+            tabs.forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const sec = document.getElementById(`section-${t}`);
+                if (t === tabName) {
+                    btn.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 bg-rose-500 text-white shadow-sm flex items-center justify-center space-x-1.5';
+                    sec.classList.remove('hidden');
+                } else {
+                    btn.className = 'flex-1 py-2 text-xs font-bold rounded-lg transition-all duration-200 text-slate-600 hover:text-slate-800 flex items-center justify-center space-x-1.5';
+                    sec.classList.add('hidden');
+                }
+            });
+            if (tabName === 'list') renderBookingList();
+            if (tabName === 'karte') renderKarteList();
+        }
+
+        // Render Booking List (Sorted strictly by Booking Date and Time ascending)
+        function renderBookingList() {
+            const container = document.getElementById('bookingListContainer');
+            const searchQueryEl = document.getElementById('searchQuery');
+            const query = searchQueryEl ? searchQueryEl.value.toLowerCase() : '';
+
+            // Filter bookings by query
+            let filtered = bookings.filter(b => 
+                b.name.toLowerCase().includes(query) || b.phone.includes(query)
+            );
+
+            // SORT: By date and time ascending (earliest to latest)
+            filtered.sort((a, b) => {
+                const dtA = `${a.date} ${a.time}`;
+                const dtB = `${b.date} ${b.time}`;
+                return dtA.localeCompare(dtB);
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-sm space-y-2">
+                        <i class="fa-solid fa-calendar-xmark text-slate-300 text-3xl"></i>
+                        <p class="text-xs text-slate-500 font-medium">該当する予約がありません</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            filtered.forEach(b => {
+                const menuNames = b.menus.map(id => {
+                    const m = salonMenus.find(item => item.id === id);
+                    return m ? m.name : id;
+                }).join(', ');
+
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl p-4 shadow-sm border border-slate-200 hover:border-rose-200 transition-all space-y-3';
+                card.innerHTML = `
+                    <div class="flex items-start justify-between">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-bold text-xs">
+                                ${b.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-bold text-slate-800">${b.name}</h3>
+                                <p class="text-[11px] text-slate-400"><i class="fa-solid fa-phone text-[9px] mr-1"></i>${b.phone}</p>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-rose-600 bg-rose-50 px-2.5 py-1 rounded-full border border-rose-100">
+                            ¥${Number(b.totalPrice).toLocaleString()}
+                        </span>
+                    </div>
+
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
+                        <div class="flex items-center space-x-1.5 text-slate-700 font-medium">
+                            <i class="fa-regular fa-calendar text-rose-500"></i>
+                            <span>${b.date} (${formatDayOfWeek(b.date)})</span>
+                        </div>
+                        <div class="flex items-center space-x-1.5 text-slate-800 font-bold bg-white px-2 py-0.5 rounded border border-slate-200">
+                            <i class="fa-regular fa-clock text-rose-500"></i>
+                            <span>${b.time} 〜</span>
+                        </div>
+                    </div>
+
+                    <div class="text-[11px] text-slate-600 line-clamp-1">
+                        <span class="font-bold text-slate-700 mr-1">メニュー:</span>${menuNames}
+                    </div>
+
+                    <div class="flex items-center justify-between pt-1 border-t border-slate-100 text-[11px]">
+                        <button type="button" onclick="openDetailModal('${b.id}')" class="text-slate-600 hover:text-rose-600 font-bold flex items-center space-x-1">
+                            <i class="fa-solid fa-circle-info"></i>
+                            <span>詳細・カルテ確認</span>
+                        </button>
+                        <div class="flex space-x-2">
+                            <button type="button" onclick="editBooking('${b.id}')" class="text-slate-500 hover:text-blue-600 px-2 py-1"><i class="fa-solid fa-pen"></i> 編集</button>
+                            <button type="button" onclick="deleteBooking('${b.id}')" class="text-rose-500 hover:text-rose-700 font-bold px-2.5 py-1 bg-rose-50 rounded-lg transition-all"><i class="fa-solid fa-trash mr-1"></i>削除</button>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Format Day of Week
+        function formatDayOfWeek(dateString) {
+            const days = ['日', '月', '火', '水', '木', '金', '土'];
+            const d = new Date(dateString);
+            return days[d.getDay()] || '';
+        }
+
+        // Save or Update Booking
+        function saveBooking(event) {
+            event.preventDefault();
+            const idInput = document.getElementById('editingId').value;
+            const name = document.getElementById('customerName').value.trim();
+            const phone = document.getElementById('customerPhone').value.trim();
+            const date = document.getElementById('bookingDate').value;
+            const time = document.getElementById('bookingTime').value;
+            const memo = document.getElementById('customerMemo').value.trim();
+            const totalPrice = Number(document.getElementById('calculatedTotalPrice').value);
+
+            const selectedMenus = [];
+            document.querySelectorAll('input[name="menuCheckbox"]:checked').forEach(cb => {
+                selectedMenus.push(cb.value);
+            });
+
+            if (selectedMenus.length === 0) {
+                showAlert('メニューエラー', 'メニューを少なくとも1つ選択してください。');
+                return;
+            }
+
+            if (idInput) {
+                // Update Existing
+                const index = bookings.findIndex(b => b.id === idInput);
+                if (index !== -1) {
+                    bookings[index] = {
+                        ...bookings[index],
+                        name,
+                        phone,
+                        date,
+                        time,
+                        menus: selectedMenus,
+                        totalPrice,
+                        memo
+                    };
+                }
+                showAlert('完了', '予約・カルテ情報を更新しました。');
+            } else {
+                // Create New
+                const newBooking = {
+                    id: Date.now().toString(),
+                    name,
+                    phone,
+                    date,
+                    time,
+                    menus: selectedMenus,
+                    totalPrice,
+                    memo,
+                    createdAt: new Date().toISOString()
+                };
+                bookings.push(newBooking);
+                showAlert('完了', '新規予約を受け付けました。');
+            }
+
+            saveToLocalStorage();
+            resetForm();
+            updateHeaderCount();
+            switchTab('list');
+        }
+
+        // Edit Booking
+        function editBooking(id) {
+            const b = bookings.find(item => item.id === id);
+            if (!b) return;
+
+            switchTab('register');
+            document.getElementById('editingId').value = b.id;
+            document.getElementById('customerName').value = b.name;
+            document.getElementById('customerPhone').value = b.phone;
+            document.getElementById('bookingDate').value = b.date;
+            document.getElementById('bookingTime').value = b.time;
+            document.getElementById('customerMemo').value = b.memo || '';
+
+            // Check menus
+            document.querySelectorAll('input[name="menuCheckbox"]').forEach(cb => {
+                cb.checked = b.menus.includes(cb.value);
+            });
+
+            calculateTotalPrice();
+            document.getElementById('formTitle').innerHTML = '<i class="fa-solid fa-pen-to-square text-rose-500"></i><span>予約・カルテ編集</span>';
+            document.getElementById('submitBtnText').textContent = '変更を保存する';
+        }
+
+        // Delete Booking (Direct removal without browser confirm popup interference)
+        function deleteBooking(id) {
+            bookings = bookings.filter(b => b.id !== id);
+            saveToLocalStorage();
+            renderBookingList();
+            renderKarteList();
+            updateHeaderCount();
+        }
+
+        // Reset Form
+        function resetForm() {
+            document.getElementById('bookingForm').reset();
+            document.getElementById('editingId').value = '';
+            setDefaultDate();
+            document.querySelectorAll('input[name="menuCheckbox"]').forEach(cb => cb.checked = false);
+            calculateTotalPrice();
+            document.getElementById('formTitle').innerHTML = '<i class="fa-solid fa-calendar-check text-rose-500"></i><span>新規予約・カルテ登録</span>';
+            document.getElementById('submitBtnText').textContent = '予約を確定してカルテ保存';
+        }
+
+        // Render Karte Management List
+        function renderKarteList() {
+            const container = document.getElementById('karteListContainer');
+            const queryEl = document.getElementById('karteSearchQuery');
+            const query = queryEl ? queryEl.value.toLowerCase() : '';
+
+            // Group bookings by customer phone or name for karte view
+            let karteMap = {};
+            bookings.forEach(b => {
+                const key = b.phone; // use phone as unique customer ID key
+                if (!karteMap[key]) {
+                    karteMap[key] = {
+                        name: b.name,
+                        phone: b.phone,
+                        visits: []
+                    };
+                }
+                karteMap[key].visits.push(b);
+            });
+
+            let customerList = Object.values(karteMap);
+            // Sort visits inside each customer by date desc
+            customerList.forEach(c => {
+                c.visits.sort((x, y) => `${y.date} ${y.time}`.localeCompare(`${x.date} ${x.time}`));
+            });
+
+            // Filter by query
+            if (query) {
+                customerList = customerList.filter(c => c.name.toLowerCase().includes(query) || c.phone.includes(query));
+            }
+
+            const karteCountEl = document.getElementById('karteCount');
+            if (karteCountEl) karteCountEl.textContent = `${customerList.length}名`;
+
+            if (customerList.length === 0) {
+                container.innerHTML = `
+                    <div class="bg-white rounded-2xl p-8 text-center border border-slate-200 shadow-sm space-y-2">
+                        <i class="fa-solid fa-address-book text-slate-300 text-3xl"></i>
+                        <p class="text-xs text-slate-500 font-medium">顧客カルテがありません</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = '';
+            customerList.forEach(c => {
+                const latestVisit = c.visits[0];
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3';
+                
+                let visitsHtml = c.visits.map(v => `
+                    <div class="bg-slate-50 p-2.5 rounded-xl border border-slate-100 text-[11px] space-y-1">
+                        <div class="flex justify-between font-bold text-slate-700">
+                            <span><i class="fa-regular fa-calendar mr-1 text-rose-500"></i>${v.date} (${v.time})</span>
+                            <span class="text-rose-600">¥${Number(v.totalPrice).toLocaleString()}</span>
+                        </div>
+                        <div class="text-slate-500">
+                            <span class="font-medium">メニュー:</span> ${v.menus.map(mId => {const m = salonMenus.find(x => x.id === mId); return m ? m.name : mId;}).join(', ')}
+                        </div>
+                        ${v.memo ? `<div class="text-slate-600 bg-white p-2 rounded border border-slate-200 mt-1"><span class="font-bold text-slate-700">メモ:</span> ${v.memo}</div>` : ''}
+                    </div>
+                `).join('');
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                        <div class="flex items-center space-x-2">
+                            <div class="w-8 h-8 rounded-full bg-slate-900 text-white flex items-center justify-center font-bold text-xs">
+                                ${c.name.charAt(0)}
+                            </div>
+                            <div>
+                                <h3 class="text-xs font-bold text-slate-800">${c.name}</h3>
+                                <p class="text-[11px] text-slate-400"><i class="fa-solid fa-phone text-[9px] mr-1"></i>${c.phone}</p>
+                            </div>
+                        </div>
+                        <span class="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full font-medium">来店回数: ${c.visits.length}回</span>
+                    </div>
+                    <div class="space-y-2">
+                        <span class="text-[11px] font-bold text-slate-700 block">施術・予約履歴一覧</span>
+                        <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+                            ${visitsHtml}
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // Modal Controls
+        function openDetailModal(id) {
+            const b = bookings.find(item => item.id === id);
+            if (!b) return;
+            currentModalBookingId = b.id;
+
+            document.getElementById('modalCustomerName').textContent = b.name;
+            document.getElementById('modalCustomerPhone').textContent = b.phone;
+            document.getElementById('modalBookingDateTime').textContent = `${b.date} (${formatDayOfWeek(b.date)}) ${b.time} 〜`;
+            document.getElementById('modalPrice').textContent = `¥${Number(b.totalPrice).toLocaleString()}`;
+            
+            const menuContainer = document.getElementById('modalMenuList');
+            menuContainer.innerHTML = '';
+            b.menus.forEach(mId => {
+                const m = salonMenus.find(x => x.id === mId);
+                const span = document.createElement('span');
+                span.className = 'bg-rose-50 text-rose-600 text-[10px] font-medium px-2 py-0.5 rounded border border-rose-100';
+                span.textContent = m ? m.name : mId;
+                menuContainer.appendChild(span);
+            });
+
+            document.getElementById('modalMemo').textContent = b.memo || 'メモなし';
+            document.getElementById('detailModal').classList.remove('hidden');
+        }
+
+        // Automatic removal of bookings when appointment time is reached or passed
+        function checkExpiredBookings() {
+            const now = new Date();
+            let updated = false;
+
+            bookings = bookings.filter(b => {
+                const bookingDateTime = new Date(`${b.date}T${b.time}:00`);
+                if (now >= bookingDateTime) {
+                    updated = true;
+                    return false;
+                }
+                return true;
+            });
+
+            if (updated) {
+                saveToLocalStorage();
+                renderBookingList();
+                renderKarteList();
+                updateHeaderCount();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('detailModal').classList.add('hidden');
+            currentModalBookingId = null;
+        }
+
+        function editBookingFromModal() {
+            const id = currentModalBookingId;
+            closeModal();
+            if (id) editBooking(id);
+        }
+
+        // Custom Alert Modal
+        function showAlert(title, message) {
+            document.getElementById('alertTitle').textContent = title;
+            document.getElementById('alertMessage').textContent = message;
+            document.getElementById('alertModal').classList.remove('hidden');
+        }
+
+        function closeAlertModal() {
+            document.getElementById('alertModal').classList.add('hidden');
+        }
+
+        function hideNotification() {
+            document.getElementById('notification').classList.add('hidden');
+        }
+
+        function updateHeaderCount() {
+            const countEl = document.getElementById('headerTotalCount');
+            if (countEl) countEl.textContent = `${bookings.length}件予約`;
+        }
+    </script>
+</body>
+</html>
